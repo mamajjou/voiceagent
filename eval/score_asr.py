@@ -15,13 +15,32 @@ def _lcp(a: str, b: str) -> int:
     return i
 
 def _ned(a: str, b: str) -> float:
-    """Normalized edit distance (jiwer) in [0, 1]."""
-    if not b:
-        return 0.0 if not a else 1.0
+    """Normalized edit distance in [0, 1] (Levenshtein / max(len))."""
+    if not b and not a:
+        return 0.0
     try:
-        return float(jiwer.cer(a, b))
+        from rapidfuzz.distance import Levenshtein
+        dist = Levenshtein.distance(a, b)
     except Exception:
-        return 1.0
+        # fallback: manual Levenshtein (small strings)
+        dist = _levenshtein(a, b)
+    denom = max(len(a), len(b), 1)
+    return float(dist) / denom
+
+def _levenshtein(a: str, b: str) -> int:
+    """Exact Levenshtein distance (iterative, 2-row DP)."""
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            cur.append(min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + cost))
+        prev = cur
+    return prev[-1]
 
 def stability_metrics(partials: list[str], final: str, partial_times=None):
     """Partial-transcript stability statistics.
