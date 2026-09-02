@@ -1,0 +1,61 @@
+# Default config - single RTX 3090 24GB
+audio:
+  sample_rate: 16000
+  chunk_ms: 20          # 20ms PCM16 chunks
+  channels: 1
+
+asr:
+  backend:
+    host: "127.0.0.1"
+    port: 8090
+    gpu: 0
+  model:
+    path: "/workspace/models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf"
+    # alternative: ./models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+  streaming:
+    rnnt_right_context: 3   # 320ms
+  endpointing:
+    enable: true
+    vad_based: false
+    stop_history_eou_ms: 650
+  language: "en-US"  # or de-DE
+
+llm:
+  host: "127.0.0.1"
+  port: 8081
+  model_path: "/workspace/models/Qwen3.8-27B-Q4_K_M.gguf"
+  context: 8192
+  n_parallel: 1
+  flash_attention: true
+  kv_cache:
+    k: "q8_0"
+    v: "q8_0"
+  ngl: 999
+  system_prompt: |
+    You are participating in a live spoken conversation.
+
+    Respond naturally and directly. Prefer concise conversational answers unless
+    the user explicitly asks for detail. Do not use elaborate formatting,
+    section headings, tables, or long lists unless they are genuinely useful.
+
+    The user's message was produced by automatic speech recognition. Resolve
+    obvious minor transcription errors from context when possible rather than
+    commenting on them.
+
+    Do not mention the speech recognition system unless the user asks about it.
+  generation:
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    presence_penalty: 1.5
+    max_tokens: 256
+    stream: true
+    enable_thinking: false
+
+telemetry:
+  sample_interval_ms: 200
+  log_dir: "runs"
+
+eval:
+  manifest: "eval/manifest.jsonl"
+  audio_dir: "eval/audio"

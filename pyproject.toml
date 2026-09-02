@@ -1,0 +1,33 @@
+[project]
+name = "voice-agent"
+version = "0.1.0"
+description = "Naive real-time voice baseline: Nemotron ASR → UTF-8 → Qwen3.8"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "httpx>=0.27",
+  "websockets>=12.0",
+  "openai>=1.30",
+  "soundfile>=0.12",
+  "numpy>=1.24",
+  "rich>=13.0",
+  "pyyaml>=6.0",
+  "jiwer>=3.0",
+  "psutil>=5.9",
+  "datasets>=2.18",
+  "sounddevice>=0.4",
+  "tqdm>=4.66",
+]
+
+[project.scripts]
+voice-agent = "voice_agent.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,27 @@
+model: "/workspace/models/Qwen3.8-27B-Q4_K_M.gguf"
+context: 8192
+ngl: 999
+flash_attention: true
+kv_k: "q8_0"
+kv_v: "q8_0"
+port: 8081
+host: "127.0.0.1"
+system_prompt: |
+  You are participating in a live spoken conversation.
+
+  Respond naturally and directly. Prefer concise conversational answers unless
+  the user explicitly asks for detail. Do not use elaborate formatting,
+  section headings, tables, or long lists unless they are genuinely useful.
+
+  The user's message was produced by automatic speech recognition. Resolve
+  obvious minor transcription errors from context when possible rather than
+  commenting on them.
+
+  Do not mention the speech recognition system unless the user asks about it.
+generation:
+  temperature: 0.7
+  top_p: 0.8
+  top_k: 20
+  presence_penalty: 1.5
+  max_tokens: 256
+  enable_thinking: false

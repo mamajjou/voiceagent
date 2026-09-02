@@ -1,35 +1,40 @@
-# OS
+# (kept from initial)
 .DS_Store
 Thumbs.db
-
-# Editor
 .vscode/
 .idea/
 *.swp
 *~
-
-# Env / secrets
 .env
 .env.*
 !.env.example
 *.key
 *.pem
-
-# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
 *.egg-info/
-
-# Node
 node_modules/
 dist/
 build/
-
-# Logs
 *.log
 logs/
-
-# Checkpoints
+# voiceagent specific
+eval/audio/
+runs/
+models/
+weights/
 checkpoints/
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+*.ggml
+*.wav
+*.flac
+*.mp3
