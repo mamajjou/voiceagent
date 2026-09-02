@@ -139,7 +139,7 @@ async def main():
     print(f"[sweep] {len(entries)} entries")
 
     eou_grid = [350, 500, 650, 800, 1000]
-    rc_values = [3] if args.eou_only else [1, 3, 6]
+    rc_values = [args.rc] if args.eou_only else [1, 3, 6]
     results = []
     for rc in rc_values:
         for eou in eou_grid:
