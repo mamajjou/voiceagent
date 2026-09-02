@@ -23,7 +23,7 @@ asr:
 llm:
   host: "127.0.0.1"
   port: 8081
-  model_path: "/workspace/models/Qwen3.8-27B-Q4_K_M.gguf"
+  model_path: "/workspace/models/Qwen3.8-27B-UD-Q4_K_M.gguf"
   context: 8192
   n_parallel: 1
   flash_attention: true

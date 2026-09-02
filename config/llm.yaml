@@ -1,4 +1,4 @@
-model: "/workspace/models/Qwen3.8-27B-Q4_K_M.gguf"
+model: "/workspace/models/Qwen3.8-27B-UD-Q4_K_M.gguf"
 context: 8192
 ngl: 999
 flash_attention: true
