@@ -1,0 +1,110 @@
+[
+  {
+    "path": "/tmp/de.wav",
+    "lang": "de",
+    "dur": 2.35,
+    "ref": "Guten Tag, wie geht es dir?",
+    "off_text": "Guten Tag. Wie geht es dir?",
+    "off_s": 0.958,
+    "off_wer": 0.0,
+    "st_text": "Guten Tag. Wie geht es dir?",
+    "st_s": 0.556,
+    "st_wer": 0.0
+  },
+  {
+    "path": "/tmp/de2.wav",
+    "lang": "de",
+    "dur": 2.71,
+    "ref": "Guten Morgen, wie geht es Ihnen heute?",
+    "off_text": "Guten Morgen, wie geht es Ihnen heute?",
+    "off_s": 0.7,
+    "off_wer": 0.0,
+    "st_text": "Guten Morgen, wie geht es Ihnen heute?",
+    "st_s": 0.496,
+    "st_wer": 0.0
+  },
+  {
+    "path": "/tmp/de3.wav",
+    "lang": "de",
+    "dur": 2.59,
+    "ref": "Ich bin gestern nach Berlin gefahren.",
+    "off_text": "Ich bin gestern nach Berlin gefahren.",
+    "off_s": 0.702,
+    "off_wer": 0.0,
+    "st_text": "Ich bin gestern nach Berlin gefahren.",
+    "st_s": 0.481,
+    "st_wer": 0.0
+  },
+  {
+    "path": "/tmp/de4.wav",
+    "lang": "de",
+    "dur": 2.95,
+    "ref": "Wie lautet die Hauptstadt von Deutschland?",
+    "off_text": "Wie lautet die Hauptstadt von Deutschland?",
+    "off_s": 0.689,
+    "off_wer": 0.0,
+    "st_text": "Wie lautet die Hauptstadt von Deutschland?",
+    "st_s": 0.538,
+    "st_wer": 0.0
+  },
+  {
+    "path": "/tmp/de5.wav",
+    "lang": "de",
+    "dur": 3.7,
+    "ref": "Koennen Sie erklaeren, warum der Himmel blau ist?",
+    "off_text": "k\u00f6nnen Sie erkl\u00e4ren, warum der Himmel blau ist?",
+    "off_s": 0.703,
+    "off_wer": 0.5,
+    "st_text": "k\u00f6nnen Sie erkl\u00e4ren, warum der Himmel blau ist?",
+    "st_s": 0.498,
+    "st_wer": 0.5
+  },
+  {
+    "path": "/tmp/en1.wav",
+    "lang": "en",
+    "dur": 3.82,
+    "ref": "She had your dark suit and greasy washwater all year.",
+    "off_text": "She had your dark suit and greasy washwater all year.",
+    "off_s": 0.707,
+    "off_wer": 0.0,
+    "st_text": "She had your dark suit and greasy washwater all year.",
+    "st_s": 0.518,
+    "st_wer": 0.0
+  },
+  {
+    "path": "/tmp/en2.wav",
+    "lang": "en",
+    "dur": 2.78,
+    "ref": "Could you explain why the sky is blue?",
+    "off_text": "Could you explain why the sky is blue?",
+    "off_s": 0.699,
+    "off_wer": 0.0,
+    "st_text": "Could you explain why the sky is blue?",
+    "st_s": 0.493,
+    "st_wer": 0.0
+  },
+  {
+    "path": "/tmp/en3.wav",
+    "lang": "en",
+    "dur": 2.38,
+    "ref": "What is the capital of France?",
+    "off_text": "What is the capital of France?",
+    "off_s": 0.708,
+    "off_wer": 0.0,
+    "st_text": "What is the capital of France?",
+    "st_s": 0.461,
+    "st_wer": 0.0
+  },
+  {
+    "path": "/tmp/en4.wav",
+    "lang": "en",
+    "dur": 3.43,
+    "ref": "How does a transformer attention mechanism work?",
+    "off_text": "How does a transformer attention mechanism work",
+    "off_s": 0.689,
+    "off_wer": 0.0,
+    "st_text": "How does a transformer attention mechanism work?",
+    "st_s": 0.521,
+    "st_wer": 0.0
+  }
+]
