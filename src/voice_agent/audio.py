@@ -50,24 +50,29 @@ class FileReplayAudioSource(AudioSource):
         self.chunk_samples = int(sample_rate * chunk_ms / 1000)
 
     def _load_mono_16k(self) -> np.ndarray:
-        data, sr = sf.read(str(self.path), always_2d=False)
+        if not self.path.exists():
+            raise FileNotFoundError(f"audio file not found: {self.path}")
+        try:
+            data, sr = sf.read(str(self.path), always_2d=False, dtype="float32")
+        except Exception as e:
+            raise RuntimeError(f"failed to read audio {self.path}: {e}") from e
+        if data.size == 0:
+            raise ValueError(f"empty audio file: {self.path}")
         # to mono
         if data.ndim == 2:
             data = data.mean(axis=1)
         # resample if needed (simple linear interpolation)
         if sr != self.target_sr:
-            # linear resample
+            # linear resample — adequate for 16k benchmark; keep deps minimal
             duration = len(data) / sr
             target_len = int(duration * self.target_sr)
-            # use numpy interp
-            old_idx = np.linspace(0, 1, len(data))
-            new_idx = np.linspace(0, 1, target_len)
-            data = np.interp(new_idx, old_idx, data)
-        # normalize to int16
-        # data is float in [-1,1] from soundfile
-        if data.dtype != np.float32 and data.dtype != np.float64:
-            data = data.astype(np.float32)
-        # clip
+            if target_len <= 0:
+                raise ValueError(f"invalid target length {target_len} for {self.path}")
+            old_idx = np.linspace(0, 1, len(data), dtype=np.float64)
+            new_idx = np.linspace(0, 1, target_len, dtype=np.float64)
+            data = np.interp(new_idx, old_idx, data).astype(np.float32)
+        # soundfile returns float32 in [-1,1] when dtype=float32
+        # clip and convert to int16
         data = np.clip(data, -1.0, 1.0)
         pcm = (data * 32767).astype(np.int16)
         return pcm
@@ -75,24 +80,23 @@ class FileReplayAudioSource(AudioSource):
     def frames(self) -> Generator[AudioFrame, None, None]:
         pcm = self._load_mono_16k()
         total_samples = len(pcm)
+        if total_samples == 0:
+            return
         n_chunks = (total_samples + self.chunk_samples - 1) // self.chunk_samples
         start_wall = time.monotonic()
-        t0 = 0.0
         for i in range(n_chunks):
             s = i * self.chunk_samples
             e = min(s + self.chunk_samples, total_samples)
             chunk = pcm[s:e]
-            # pad last chunk with silence to keep 20ms? keep as-is but mark is_last
             is_last = (i == n_chunks - 1)
             timestamp = i * self.chunk_ms / 1000.0
-            # realtime pacing
+            # realtime pacing: wall time tracks timestamp / realtime_factor
             if self.realtime_factor > 0:
                 target_wall = start_wall + timestamp / self.realtime_factor
                 now = time.monotonic()
                 sleep = target_wall - now
                 if sleep > 0:
                     time.sleep(sleep)
-                # if we are behind, we don't sleep (catch up)
             yield AudioFrame(
                 pcm16=chunk.tobytes(),
                 sample_rate=self.target_sr,
@@ -122,8 +126,12 @@ class MicrophoneAudioSource(AudioSource):
     def _callback(self, indata, frames, time_info, status):
         if status:
             print(f"[mic] status: {status}")
-        # indata is float32 [-1,1]
-        pcm = (np.clip(indata[:, 0], -1, 1) * 32767).astype(np.int16)
+        # indata is float32 [-1,1], shape (frames, channels)
+        try:
+            mono = indata[:, 0] if indata.ndim == 2 else indata
+        except Exception:
+            mono = indata
+        pcm = (np.clip(mono, -1, 1) * 32767).astype(np.int16)
         ts = time.monotonic() - self._start_time
         frame = AudioFrame(
             pcm16=pcm.tobytes(),
@@ -139,20 +147,27 @@ class MicrophoneAudioSource(AudioSource):
             pass
 
     def frames(self) -> Generator[AudioFrame, None, None]:
-        import sounddevice as sd
+        try:
+            import sounddevice as sd
+        except ImportError as e:
+            raise RuntimeError("sounddevice not installed; pip install sounddevice") from e
 
         self._running = True
         self._seq = 0
         self._start_time = time.monotonic()
         self._q = queue.Queue(maxsize=100)
-        with sd.InputStream(
-            samplerate=self.sample_rate,
-            channels=1,
-            dtype="float32",
-            blocksize=self.chunk_samples,
-            device=self.device,
-            callback=self._callback,
-        ):
+        try:
+            stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                dtype="float32",
+                blocksize=self.chunk_samples,
+                device=self.device,
+                callback=self._callback,
+            )
+        except Exception as e:
+            raise RuntimeError(f"failed to open microphone (device={self.device!r}): {e}") from e
+        with stream:
             print("[mic] Listening... speak naturally (Ctrl+C to stop)")
             while self._running:
                 try:

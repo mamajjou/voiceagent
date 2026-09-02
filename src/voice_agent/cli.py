@@ -19,8 +19,17 @@ from .telemetry import GPUTelemetry
 console = Console()
 
 def load_config(path: str | Path) -> dict:
-    with open(path) as f:
-        return yaml.safe_load(f)
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"config not found: {p}")
+    with open(p, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+    if not isinstance(cfg, dict):
+        raise ValueError(f"invalid config {p}: expected mapping")
+    # minimal defaults so CLI doesn't crash on partial configs
+    cfg.setdefault("audio", {}).setdefault("chunk_ms", 20)
+    cfg.setdefault("audio", {}).setdefault("sample_rate", 16000)
+    return cfg
 
 def build_clients(args, cfg):
     asr_cfg = ASRConfig(
@@ -65,6 +74,8 @@ def main():
     parser.add_argument("--mock-text", type=str, default="Hello, this is a mock transcription for testing.")
     parser.add_argument("--runs-dir", type=str, default="runs")
     args = parser.parse_args()
+    # UTF-8 handling: ensure German umlauts pass through; console may need utf-8
+    # Python's open already uses utf-8 where we specify encoding; argparse preserves unicode
 
     cfg = load_config(args.config)
     asr, llm, asr_cfg, llm_cfg = build_clients(args, cfg)
