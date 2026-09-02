@@ -66,19 +66,33 @@ Measured with a realtime 20 ms PCM16 replay through the WebSocket `/v1/realtime`
 
 **Key architectural finding:** the `/v1/realtime` WebSocket server does **not** auto-finalize on `session.update.endpointing_ms`. It requires an explicit `input_audio_buffer.commit`. So the orchestration owns EOU: it streams trailing silence, then commits. ASR finalization after commit ≈ 0.12 s.
 
-### EOU sweep (rc=320 ms, 8-clip corpus, box-local Qwen)
+### Full 15-config endpointing sweep (all rc × EOU, 8-clip corpus, box-local Qwen)
 
-| EOU | ASR final (median, after speech_end) | Qwen TTFT (median, after speech_end) |
-|-----|--------------------------------------|---------------------------------------|
-| 350 ms | 425 ms | **1 132 ms** |
-| 500 ms | 562 ms | **1 176 ms** |
-| 650 ms | 723 ms | **1 320 ms** |
-| 800 ms | 874 ms | **1 463 ms** |
-| 1000 ms | ~1 090 ms | ~1 600 ms |
+| rc | lookahead | EOU | ASR final med | ASR final p90 | Qwen TTFT med | Qwen TTFT p90 |
+|----|-----------|-----|---------------|---------------|---------------|---------------|
+| 1 | 160 ms | 350 ms | 418 ms | 424 ms | 961 ms | 1090 ms |
+| 1 | 160 ms | 500 ms | 572 ms | 584 ms | 1139 ms | 1224 ms |
+| 1 | 160 ms | 650 ms | 724 ms | 729 ms | 1275 ms | 1365 ms |
+| 1 | 160 ms | 800 ms | 876 ms | 879 ms | 1452 ms | 1528 ms |
+| 1 | 160 ms | 1000 ms | 1077 ms | 1084 ms | 1631 ms | 1799 ms |
+| **3** | **320 ms** | **350 ms** | **412 ms** | **432 ms** | **995 ms** | **1015 ms** |
+| 3 | 320 ms | 500 ms | 566 ms | 583 ms | 1127 ms | 1226 ms |
+| 3 | 320 ms | 650 ms | 718 ms | 747 ms | 1262 ms | 1368 ms |
+| 3 | 320 ms | 800 ms | 867 ms | 904 ms | 1437 ms | 1596 ms |
+| 3 | 320 ms | 1000 ms | 1066 ms | 1094 ms | 1646 ms | 1693 ms |
+| 6 | 560 ms | 350 ms | 416 ms | 455 ms | 957 ms | 1071 ms |
+| 6 | 560 ms | 500 ms | 578 ms | 631 ms | 1147 ms | 1268 ms |
+| 6 | 560 ms | 650 ms | 724 ms | 740 ms | 1293 ms | 1419 ms |
+| 6 | 560 ms | 800 ms | 866 ms | 885 ms | 1421 ms | 1523 ms |
+| 6 | 560 ms | 1000 ms | 1088 ms | 1108 ms | 1638 ms | 1700 ms |
 
-Formula: `ASR_final ≈ EOU + ~75 ms`; `Qwen_TTFT ≈ ASR_final + ~710 ms` (Qwen prefill + first token, **constant** across EOU).
+**WER = 0.000 across all 15 configs (8-clip corpus), false cuts = 0.**
 
-### Detailed waterfall (EOU=650, corrected harness — drops file trailing silence)
+Formulas: `ASR_final ≈ EOU + ~70 ms`; `Qwen_TTFT ≈ ASR_final + ~600 ms` (Qwen prefill + first token).
+
+**Key finding: rnnt_right_context (ASR lookahead 160/320/560 ms) has essentially NO effect** on latency or accuracy for these clean clips — the latency is entirely governed by the EOU silence window. The lookahead is absorbed by the streaming decoder and does not surface as additional endpoint latency.
+
+### Detailed waterfall (EOU=650, rc=320 ms, corrected harness — drops file trailing silence)
 
 For a 2.35 s German clip (speech_end = 1900 ms):
 
@@ -91,7 +105,7 @@ LLM first token                +1 339 ms     ← +538 ms Qwen prefill+first-toke
 LLM done                       +2 129 ms
 ```
 
-**The dominant term is the EOU silence window + ASR finalization (~710–800 ms). Qwen adds only ~540–710 ms.** Reducing EOU from 650 → 350 ms saves ~190 ms of ASR latency.
+**The dominant term is the EOU silence window + ASR finalization (~710–800 ms). Qwen adds only ~540–710 ms.** Reducing EOU from 650 → 350 ms saves ~190 ms of ASR latency and ~200 ms of end-to-end latency.
 
 ---
 
