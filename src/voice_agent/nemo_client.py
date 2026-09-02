@@ -48,7 +48,7 @@ class NemoClient:
 
     @property
     def ws_url(self) -> str:
-        return f"ws://{self.cfg.host}:{self.cfg.port}/v1/stream"
+        return f"ws://{self.cfg.host}:{self.cfg.port}/v1/realtime"
 
     @property
     def http_url(self) -> str:
@@ -90,55 +90,57 @@ class NemoClient:
             raise
 
     async def _ws_stream(self, audio_frames, on_partial, lang) -> str:
-        # Protocol: send json config then binary PCM chunks
-        # This is the expected NeMo-Speech.cpp protocol; we handle version drift.
+        # NeMo-Speech.cpp WebSocket /v1/realtime protocol
+        # Server sends session.created on connect, client sends session.update,
+        # then binary PCM16 frames, then input_audio_buffer.commit.
+        # Server sends conversation.item.input_audio_transcription.delta (partial)
+        # and .completed (final).
         final_text = ""
         async with websockets.connect(self.ws_url, max_size=10*1024*1024) as ws:
-            # Send initial config
-            init = {
-                "session_id": self._session_id,
-                "language": lang,
-                "sample_rate": 16000,
-                "rnnt_right_context": self.cfg.rnnt_right_context,
-                "endpointing": {
-                    "enable": self.cfg.enable_endpointing,
-                    "stop_history_eou_ms": self.cfg.eou_ms,
-                    "vad_based": self.cfg.vad_based,
+            # Wait for session.created (optional)
+            try:
+                msg = await asyncio.wait_for(ws.recv(), timeout=2.0)
+                try:
+                    data = json.loads(msg)
+                    # ignore session.created
+                except:
+                    pass
+            except:
+                pass
+            # Send session.update with ASR config
+            # Map rnnt_right_context to endpointing via server defaults; rnnt_right_context itself is model-internal
+            # and not exposed via session.update, but we pass endpointing_ms from eou_ms
+            session_update = {
+                "type": "session.update",
+                "session": {
+                    "sample_rate": 16000,
+                    "language": lang,
+                    "endpointing_ms": self.cfg.eou_ms if self.cfg.enable_endpointing else 0,
+                    "automatic_punctuation": True,
+                    "word_timestamps": True,
                 }
             }
-            await ws.send(json.dumps(init))
+            await ws.send(json.dumps(session_update))
             # Concurrent send and receive
             async def sender():
-                # audio_frames may be sync generator; run in thread if needed
-                # we support async generator or sync generator wrapped
                 if hasattr(audio_frames, "__aiter__"):
                     async for frame in audio_frames:
                         await ws.send(frame.pcm16)
                         if frame.is_last:
-                            # signal end
-                            await ws.send(json.dumps({"eof": True}))
+                            await ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
                             break
                 else:
-                    # sync iterable - need to run in executor to not block
-                    import asyncio
-                    loop = asyncio.get_event_loop()
-                    def sync_send():
-                        for frame in audio_frames:
-                            # we need to async send from sync context -> use run_coroutine_threadsafe?
-                            # Instead, we make this sender async but iterate sync
-                            pass
-                    # fallback: iterate sync directly (blocking but ok for small files if we yield sometimes)
                     for frame in audio_frames:
                         await ws.send(frame.pcm16)
-                        await asyncio.sleep(0.005)  # yield
+                        await asyncio.sleep(0.001)
                         if frame.is_last:
-                            await ws.send(json.dumps({"eof": True}))
+                            await ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
                             break
-                # small delay to allow final to arrive
                 await asyncio.sleep(0.2)
 
             async def receiver():
                 nonlocal final_text
+                accum = ""
                 while True:
                     try:
                         msg = await asyncio.wait_for(ws.recv(), timeout=10.0)
@@ -150,25 +152,37 @@ class NemoClient:
                         data = json.loads(msg)
                     except:
                         continue
-                    # expected fields: text, is_final, is_endpoint, type
-                    text = data.get("text") or data.get("transcript") or ""
-                    is_final = data.get("is_final") or data.get("final") or False
-                    is_endpoint = data.get("is_endpoint") or data.get("endpoint") or data.get("eou") or False
-                    # also handle "partial" vs "final"
-                    event_type = data.get("type") or ("final" if is_final else "partial")
-                    if text is not None:
-                        partial = ASRPartial(
-                            text=text,
-                            timestamp=time.monotonic(),
-                            is_final=is_final,
-                            is_endpoint=is_endpoint or is_final,
-                            language=lang,
-                        )
-                        on_partial(partial)
-                        if is_final:
-                            final_text = text
-                            if is_endpoint:
-                                break
+                    t = data.get("type", "")
+                    # delta is incremental, accumulate for full hypothesis
+                    if t == "conversation.item.input_audio_transcription.delta":
+                        delta = data.get("delta") or data.get("text") or ""
+                        if delta:
+                            accum += delta
+                            p = ASRPartial(text=accum, timestamp=time.monotonic(), is_final=False, is_endpoint=False, language=lang)
+                            on_partial(p)
+                    elif t == "conversation.item.input_audio_transcription.completed":
+                        transcript = data.get("transcript") or data.get("text") or ""
+                        # words may be in data["words"] but we just use transcript
+                        p = ASRPartial(text=transcript, timestamp=time.monotonic(), is_final=True, is_endpoint=True, language=lang)
+                        on_partial(p)
+                        final_text = transcript
+                        break
+                    elif t == "session.updated":
+                        continue
+                    elif t == "input_audio_buffer.committed":
+                        continue
+                    elif t == "error":
+                        print(f"[nemo] server error {data}")
+                        break
+                    # Handle legacy fallback keys
+                    elif "delta" in data and "type" not in data:
+                        p = ASRPartial(text=data["delta"], timestamp=time.monotonic(), is_final=False, language=lang)
+                        on_partial(p)
+                    elif "transcript" in data and data.get("type") == "completed":
+                        p = ASRPartial(text=data["transcript"], timestamp=time.monotonic(), is_final=True, is_endpoint=True, language=lang)
+                        on_partial(p)
+                        final_text = data["transcript"]
+                        break
                     if data.get("eof") or data.get("done"):
                         break
             await asyncio.gather(sender(), receiver())
